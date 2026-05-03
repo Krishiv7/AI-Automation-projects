@@ -1,0 +1,368 @@
+{
+  "name": "Whop",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Automate Clipping for Whop",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "video_url"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -240,
+        -140
+      ],
+      "id": "58eda51a-2cfb-44e1-aee1-fafd28dd8b0c",
+      "name": "On form submission",
+      "webhookId": "b71b2b85-8c45-4930-bae4-728599c794e0"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -20,
+        -140
+      ],
+      "id": "0c4b2ac2-a131-4715-b57c-64c0113d6f8b",
+      "name": "Download Youtube Video"
+    },
+    {
+      "parameters": {
+        "fileSelector": "={{ $('On Form Submission').item.json.video_url }}.mp4",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        200,
+        -140
+      ],
+      "id": "979e82e7-7e43-4ffa-ab3a-c481cc297aeb",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "lvl-toolkit",
+        "fileName": "={{ $.json.fileName }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        420,
+        -140
+      ],
+      "id": "a64d663f-cc23-4138-ba74-6a7a84e160b4",
+      "name": "upload Raw Video",
+      "credentials": {
+        "s3": {
+          "id": "rOtL4KXOX5N0Gqck",
+          "name": "S3 account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8080/v1/media/transcribe",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"media_url\": \"http://localhost:9000/lvl-toolkit/{{ $('Load Video').item.json.fileName }}\",\n   \"include_srt\": true\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        160
+      ],
+      "id": "bef23ce9-7e49-47f1-819d-033e17bb55cf",
+      "name": "Transcribe Video"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        360,
+        380
+      ],
+      "id": "6adb4620-cf59-483a-b3c0-667e2a4efc21",
+      "name": "Google Gemini Chat Model"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\t\"text\":;\n\t\"start\":;\n    \"end\":;\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        580,
+        380
+      ],
+      "id": "4fb2f60e-e49b-4e73-9f57-9fb7d3bfe7ec",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.response.srt }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Analyse the provided transcript and return a 1 minute clip"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        420,
+        160
+      ],
+      "id": "57a90527-b324-41fa-b05b-16d673a622da",
+      "name": "Get Best Clip"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8080/v1/video/split",
+        "sendBody": true,
+        "specifyBody": "json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        20
+      ],
+      "id": "ef0359f3-42b9-4b69-8eab-27367d5156cd",
+      "name": "Extract the Clip"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        20
+      ],
+      "id": "7d783b05-d31d-47d7-a9ac-212800bafc3d",
+      "name": "Turn Video to Vertical"
+    },
+    {
+      "parameters": {
+        "fileSelector": "output.mp4",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        1220,
+        20
+      ],
+      "id": "34d251de-24c0-497c-96f5-91ee78dccd09",
+      "name": "Load Vertical Video"
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "lvl-toolkit",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        1420,
+        20
+      ],
+      "id": "e5220c36-a16b-46f5-a4d0-ae9c84b2d4ab",
+      "name": "Upload Vertical Video",
+      "credentials": {
+        "s3": {
+          "id": "rOtL4KXOX5N0Gqck",
+          "name": "S3 account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8080/v1/video/caption",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1660,
+        20
+      ],
+      "id": "56053377-c9c4-4d40-9d21-132c5710a282",
+      "name": "Caption Video"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Download Youtube Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Youtube Video": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "upload Raw Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "upload Raw Video": {
+      "main": [
+        [
+          {
+            "node": "Transcribe Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Video": {
+      "main": [
+        [
+          {
+            "node": "Get Best Clip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Get Best Clip",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Get Best Clip",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Best Clip": {
+      "main": [
+        [
+          {
+            "node": "Extract the Clip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract the Clip": {
+      "main": [
+        [
+          {
+            "node": "Turn Video to Vertical",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Turn Video to Vertical": {
+      "main": [
+        [
+          {
+            "node": "Load Vertical Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Vertical Video": {
+      "main": [
+        [
+          {
+            "node": "Upload Vertical Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Vertical Video": {
+      "main": [
+        [
+          {
+            "node": "Caption Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ffd3ad1d-26eb-4dac-8fc5-70d025312ce8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a500973ff755353547de893e804381f35bc54e40e2cfd63bc5dcce90192099fa"
+  },
+  "id": "z7Q0RjLIm0EP2flT",
+  "tags": []
+}
